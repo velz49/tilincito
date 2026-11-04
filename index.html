@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<!-- VIEWPORT FORZADO A ANCHO DE ESCRITORIO (1200px) -->
+<meta name="viewport" content="width=1200, initial-scale=0.35, maximum-scale=3.0, user-scalable=yes">
+<meta name="description" content="SEXYBOY SCRIPTS — Executor Interface & Hub">
+<title>SEXYBOY SCRIPTS | Real Executor Interface</title>
+
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<!-- Google Fonts: JetBrains Mono & Inter -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg-main: #0a0b0e;
+    --window-bg: #0f1117;
+    --sidebar-bg: #13161f;
+    --editor-bg: #0b0d12;
+    --border-color: #1f2430;
+    --border-light: rgba(255, 255, 255, 0.08);
+    --text-main: #c3cbda;
+    --text-muted: #606d80;
+    --accent-green: #00ff88;
+    --accent-blue: #00bfff;
+    --accent-purple: #9d52ff;
+    --accent-orange: #ff9900;
+    --accent-red: #ff4757;
+    --syn-keyword: #ff5277;
+    --syn-func: #00d2ff;
+    --syn-string: #50e3c2;
+    --syn-comment: #526175;
+    --font-code: 'JetBrains Mono', monospace;
+    --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  
+  html, body {
+    width: 100%;
+    min-width: 1200px;
+    background-color: var(--bg-main);
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(0, 255, 136, 0.05), transparent 60%),
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 32px 32px, 32px 32px;
+    color: var(--text-main);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    position: relative;
+  }
+
+  /* PANTALLA DE CARGA (PRELOADER) */
+  #preloader {
+    position: fixed;
+    inset: 0;
+    background: #07080b;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+
+  #preloader.fade-out {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  /* LOGO GIRATORIO ESTILO DISCORD */
+  .loader-logo {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 24px;
+    animation: discordSpin 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    filter: drop-shadow(0 0 12px rgba(0, 255, 136, 0.4));
+  }
+
+  @keyframes discordSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* TEXTO "EJECUTANDO SEXYBOY SCRIPTS" */
+  .loader-text {
+    font-family: var(--font-code);
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+  }
+
+  /* ANIMACIÓN DE 3 PELOTITAS TIPO TYPING INDICATOR */
+  .typing-dots {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .typing-dot {
+    width: 10px;
+    height: 10px;
+    background-color: var(--accent-green);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent-green);
+    animation: typingBounce 1.4s infinite ease-in-out both;
+  }
+
+  .typing-dot:nth-child(1) { animation-delay: 0s; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typingBounce {
+    0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* VENTANA PRINCIPAL DE EXECUTOR */
+  .executor-window {
+    width: 1180px;
+    height: 720px;
+    background: var(--window-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 1px rgba(0, 255, 136, 0.3);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    opacity: 0; /* Oculto inicialmente hasta que termina el preloader */
+    transform: translateY(24px) scale(0.95);
+    visibility: hidden;
+  }
+
+  /* ANIMACIÓN TÉCNICA Y FLUIDA DE ENTRADA DEL EXECUTOR */
+  .executor-window.enter-anim {
+    visibility: visible;
+    animation: executorEntrance 850ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes executorEntrance {
+    0% {
+      opacity: 0;
+      transform: translateY(24px) scale(0.95);
+      box-shadow: 0 0 0 rgba(0, 255, 136, 0), 0 20px 60px rgba(0,0,0,0.8);
+      border-color: rgba(0, 255, 136, 0.8);
+    }
+    50% {
+      box-shadow: 0 0 35px rgba(0, 255, 136, 0.4), 0 20px 60px rgba(0,0,0,0.85);
+      border-color: rgba(0, 255, 136, 0.6);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 1px rgba(0, 255, 136, 0.3);
+      border-color: var(--border-color);
+    }
+  }
+
+  /* 1. BARRA SUPERIOR DE LA VENTANA */
+  .title-bar {
+    height: 38px;
+    background: #0d0f14;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .title-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+
+  .title-brand .logo-icon {
+    color: var(--accent-green);
+    display: flex;
+    align-items: center;
+  }
+
+  .title-brand span {
+    color: var(--accent-green);
+  }
+
+  .window-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-muted);
+  }
+
+  .window-btn {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-block;
+    transition: opacity 0.2s;
+  }
+  .window-btn:hover { opacity: 0.8; }
+  .btn-close { background: var(--accent-red); }
+  .btn-min { background: var(--accent-orange); }
+  .btn-max { background: var(--accent-green); }
+
+  /* 2. BARRA DE HERRAMIENTAS Y BOTONES DE ACCIÓN */
+  .toolbar {
+    height: 46px;
+    background: var(--window-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tool-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-light);
+    color: var(--text-main);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .tool-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+
+  .tool-btn.primary {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: rgba(0, 255, 136, 0.3);
+    color: var(--accent-green);
+  }
+
+  .tool-btn.primary:hover {
+    background: var(--accent-green);
+    color: #000;
+    box-shadow: 0 0 12px rgba(0, 255, 136, 0.4);
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--accent-green);
+    background: rgba(0, 255, 136, 0.08);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    padding: 4px 10px;
+    border-radius: 12px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent-green);
+  }
+
+  /* 3. LAYOUT PRINCIPAL (EXPLORER + EDITOR) */
+  .workspace {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    overflow: hidden;
+  }
+
+  /* 3A. PANEL IZQUIERDO (EXPLORER) */
+  .sidebar {
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .search-box {
+    margin: 0 10px 10px 10px;
+    position: relative;
+  }
+
+  .search-box input {
+    width: 100%;
+    background: #090a0e;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 10px 6px 28px;
+    color: #fff;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    outline: none;
+  }
+
+  .search-box input:focus {
+    border-color: var(--accent-green);
+  }
+
+  .search-box i {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    width: 12px;
+    height: 12px;
+  }
+
+  .explorer-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 6px;
+  }
+
+  .folder-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    padding: 8px 6px 4px 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tree-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-bottom: 2px;
+  }
+
+  .tree-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+  }
+
+  .tree-item.active {
+    background: rgba(0, 255, 136, 0.1);
+    color: var(--accent-green);
+    border-left: 2px solid var(--accent-green);
+  }
+
+  .tree-item-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tree-item-badge {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+  }
+
+  .tree-item-badge.free { color: var(--accent-green); background: rgba(0, 255, 136, 0.1); }
+  .tree-item-badge.prem { color: var(--accent-purple); background: rgba(157, 82, 255, 0.15); }
+
+  /* 3B. ZONA CENTRAL (EDITOR & DETAILS) */
+  .editor-container {
+    background: var(--editor-bg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Pestañas del Editor */
+  .editor-tabs {
+    height: 34px;
+    background: #0b0d12;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding-left: 4px;
+    gap: 2px;
+  }
+
+  .editor-tab {
+    height: 100%;
+    padding: 0 14px;
+    background: #11131a;
+    border-right: 1px solid var(--border-color);
+    border-top: 2px solid transparent;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .editor-tab.active {
+    background: var(--editor-bg);
+    color: #fff;
+    border-top-color: var(--accent-green);
+  }
+
+  /* Área Principal de Código y Ficha */
+  .editor-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 20px;
+    position: relative;
+  }
+
+  /* Ficha del Script Seleccionado */
+  .script-card-header {
+    background: #12151d;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent-green);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .script-meta h2 {
+    font-family: var(--font-ui);
+    font-size: 20px;
+    color: #fff;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .script-meta p {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+
+  .feature-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-light);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .script-actions-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    min-width: 200px;
+  }
+
+  .price-tag {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent-green);
+  }
+
+  .action-btn-large {
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-transform: uppercase;
+  }
+
+  .action-btn-large.green {
+    background: var(--accent-green);
+    color: #000;
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.25);
+  }
+
+  .action-btn-large.green:hover {
+    background: #22ff99;
+    box-shadow: 0 0 25px rgba(0, 255, 136, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .action-btn-large.purple {
+    background: var(--accent-purple);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(157, 82, 255, 0.25);
+  }
+
+  .action-btn-large.purple:hover {
+    background: #af6eff;
+    box-shadow: 0 0 25px rgba(157, 82, 255, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .action-btn-large.outline {
+    background: transparent;
+    border: 1px solid var(--border-light);
+    color: var(--text-main);
+  }
+
+  .action-btn-large.outline:hover {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+  }
+
+  /* SIMULADOR DE CÓDIGO CON NÚMEROS DE LÍNEA */
+  .code-editor-box {
+    background: #07080b;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    display: flex;
+    font-family: var(--font-code);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow: hidden;
+    position: relative;
+    flex: 1;
+    min-height: 240px;
+  }
+
+  .line-numbers {
+    background: #090b0e;
+    padding: 14px 10px;
+    color: #384252;
+    text-align: right;
+    border-right: 1px solid var(--border-color);
+    user-select: none;
+  }
+
+  .code-content {
+    padding: 14px 16px;
+    color: var(--text-main);
+    overflow-x: auto;
+    white-space: pre;
+    width: 100%;
+  }
+
+  /* Syntax Highlighting Fake */
+  .syn-kw { color: var(--syn-keyword); font-weight: bold; }
+  .syn-fn { color: var(--syn-func); }
+  .syn-str { color: var(--syn-string); }
+  .syn-com { color: var(--syn-comment); font-style: italic; }
+
+  /* BARRA DE ESTADO INFERIOR */
+  .status-bar {
+    height: 26px;
+    background: #08090c;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  .status-bar-left, .status-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  /* TOAST NOTIFICATION */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #12151d;
+    border: 1px solid var(--accent-green);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 9999;
+  }
+
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* MODAL DE COMUNIDAD WHATSAPP */
+  .community-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 11000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(3, 5, 8, 0.82);
+    backdrop-filter: blur(7px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .28s ease, visibility .28s ease;
+  }
+  .community-overlay.show { opacity: 1; visibility: visible; }
+  .community-modal {
+    width: min(440px, 100%);
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(155deg, #111820 0%, #0b0e13 72%);
+    border: 1px solid rgba(0,255,136,.35);
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 24px 90px rgba(0,0,0,.7), 0 0 35px rgba(0,255,136,.09);
+    transform: translateY(16px) scale(.98);
+    transition: transform .28s ease;
+    font-family: var(--font-ui);
+  }
+  .community-overlay.show .community-modal { transform: translateY(0) scale(1); }
+  .community-modal::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 12%; right: 12%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+    box-shadow: 0 0 18px rgba(0,255,136,.7);
+  }
+  .community-close {
+    position: absolute;
+    top: 12px; right: 13px;
+    width: 30px; height: 30px;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    background: rgba(255,255,255,.03);
+    color: var(--text-muted);
+    font-size: 21px;
+    cursor: pointer;
+    transition: .2s;
+  }
+  .community-close:hover { color: #fff; border-color: var(--accent-red); }
+  .community-icon {
+    width: 64px; height: 64px;
+    display: grid; place-items: center;
+    margin: 2px auto 18px;
+    border-radius: 18px;
+    color: var(--accent-green);
+    background: rgba(0,255,136,.08);
+    border: 1px solid rgba(0,255,136,.25);
+    box-shadow: inset 0 0 22px rgba(0,255,136,.04), 0 0 25px rgba(0,255,136,.08);
+  }
+  .community-kicker {
+    color: var(--accent-green);
+    font: 700 10px var(--font-code);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .community-modal h2 {
+    color: #f4f7fb;
+    font-size: 22px;
+    line-height: 1.3;
+    margin-bottom: 12px;
+  }
+  .community-modal p {
+    color: #8e9aab;
+    font-size: 13px;
+    line-height: 1.75;
+    margin-bottom: 22px;
+  }
+  .community-modal p strong { color: #dce5ef; font-weight: 600; }
+  .community-actions { display: flex; flex-direction: column; gap: 9px; }
+  .community-join, .community-later {
+    min-height: 44px;
+    width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    border-radius: 6px;
+    font: 700 12px var(--font-code);
+    cursor: pointer;
+    transition: transform .18s, box-shadow .18s, background .18s;
+  }
+  .community-join {
+    border: 1px solid var(--accent-green);
+    color: #06110b;
+    background: var(--accent-green);
+    box-shadow: 0 0 18px rgba(0,255,136,.15);
+  }
+  .community-join:hover { transform: translateY(-1px); background: #35ffa4; box-shadow: 0 0 25px rgba(0,255,136,.28); }
+  .community-later {
+    color: #9aa5b5;
+    border: 1px solid var(--border-color);
+    background: rgba(255,255,255,.025);
+  }
+  .community-later:hover { color: #fff; background: rgba(255,255,255,.07); }
+  .community-footnote {
+    display: block;
+    margin-top: 17px;
+    color: #4e5b6d;
+    font: 10px var(--font-code);
+    letter-spacing: .4px;
+  }
+
+  /* ===== ONBOARDING NUEVOS (1 sola vez) ===== */
+  .onboard-overlay {
+    position: fixed; inset: 0; z-index: 11050;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: rgba(3, 5, 8, 0.88);
+    backdrop-filter: blur(8px);
+    opacity: 0; visibility: hidden;
+    transition: opacity .28s ease, visibility .28s ease;
+  }
+  .onboard-overlay.show { opacity: 1; visibility: visible; }
+  .onboard-modal {
+    width: min(460px, 100%);
+    max-height: min(90vh, 640px);
+    overflow-y: auto;
+    position: relative;
+    background: linear-gradient(155deg, #111820 0%, #0b0e13 72%);
+    border: 1px solid rgba(0,255,136,.35);
+    border-radius: 14px;
+    padding: 28px 26px 24px;
+    text-align: center;
+    box-shadow: 0 24px 90px rgba(0,0,0,.7), 0 0 35px rgba(0,255,136,.09);
+    transform: translateY(16px) scale(.98);
+    transition: transform .28s ease;
+    font-family: var(--font-ui);
+  }
+  .onboard-overlay.show .onboard-modal { transform: translateY(0) scale(1); }
+  .onboard-modal::before {
+    content: "";
+    position: absolute; top: 0; left: 12%; right: 12%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+    box-shadow: 0 0 18px rgba(0,255,136,.7);
+  }
+  .onboard-step { display: none; }
+  .onboard-step.active { display: block; animation: onboardIn .3s ease; }
+  @keyframes onboardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .onboard-icon {
+    width: 56px; height: 56px; margin: 0 auto 14px;
+    display: grid; place-items: center;
+    border-radius: 14px;
+    color: var(--accent-green);
+    background: rgba(0,255,136,.08);
+    border: 1px solid rgba(0,255,136,.25);
+    box-shadow: inset 0 0 20px rgba(0,255,136,.04);
+  }
+  .onboard-icon [data-lucide] { width: 26px; height: 26px; }
+  .onboard-kicker {
+    color: var(--accent-green);
+    font: 700 10px var(--font-code);
+    letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .onboard-modal h2 {
+    color: #f4f7fb; font-size: 22px; line-height: 1.3; margin-bottom: 10px;
+  }
+  .onboard-modal p {
+    color: #8e9aab; font-size: 13.5px; line-height: 1.7; margin-bottom: 18px;
+  }
+  .onboard-modal p strong { color: #dce5ef; }
+  .onboard-actions { display: flex; flex-direction: column; gap: 9px; margin-top: 6px; }
+  .onboard-btn {
+    min-height: 44px; width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 8px; font: 700 12px var(--font-code);
+    cursor: pointer; transition: .18s; border: 1px solid transparent;
+  }
+  .onboard-btn.primary {
+    background: var(--accent-green); color: #06110b;
+    border-color: var(--accent-green);
+    box-shadow: 0 0 18px rgba(0,255,136,.18);
+  }
+  .onboard-btn.primary:hover { background: #35ffa4; transform: translateY(-1px); }
+  .onboard-btn.primary:disabled {
+    opacity: .45; cursor: not-allowed; transform: none; box-shadow: none;
+  }
+  .onboard-btn.ghost {
+    background: rgba(255,255,255,.03); color: #9aa5b5;
+    border-color: var(--border-color);
+  }
+  .onboard-btn.ghost:hover { color: #fff; background: rgba(255,255,255,.07); }
+  .onboard-script-list {
+    display: flex; flex-direction: column; gap: 8px;
+    text-align: left; margin-bottom: 14px; max-height: 280px; overflow-y: auto;
+    padding-right: 4px;
+  }
+  .onboard-script-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 12px; border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: rgba(255,255,255,.03);
+    cursor: pointer; transition: .15s;
+  }
+  .onboard-script-item:hover {
+    border-color: rgba(0,255,136,.35);
+    background: rgba(0,255,136,.05);
+  }
+  .onboard-script-item.selected {
+    border-color: var(--accent-green);
+    background: rgba(0,255,136,.1);
+    box-shadow: 0 0 0 1px rgba(0,255,136,.2);
+  }
+  .onboard-script-item .radio {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid #4e5b6d; flex-shrink: 0;
+    display: grid; place-items: center; transition: .15s;
+  }
+  .onboard-script-item.selected .radio {
+    border-color: var(--accent-green);
+  }
+  .onboard-script-item.selected .radio::after {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-green);
+  }
+  .onboard-script-item .info { flex: 1; min-width: 0; }
+  .onboard-script-item .info strong {
+    display: block; color: #fff; font-size: 13px; margin-bottom: 2px;
+  }
+  .onboard-script-item .info span {
+    display: block; color: #7a8799; font-size: 11px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .onboard-script-item .badge-free {
+    font: 700 9px var(--font-code); color: var(--accent-green);
+    background: rgba(0,255,136,.12); padding: 3px 7px; border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .onboard-hint {
+    font-size: 11px; color: #5c6a7d; margin-bottom: 12px;
+  }
+  .onboard-hint span { color: var(--accent-green); }
+
+</style>
+</head>
+<body>
+
+  <!-- PANTALLA DE CARGA (PRELOADER) -->
+  <div id="preloader">
+    <img src="https://raw.githubusercontent.com/moisess011/sexyboyhub/main/logo2.png" alt="SexyBoy Logo" class="loader-logo">
+    <div class="loader-text">Ejecutando SexyBoy Scripts</div>
+    <div class="typing-dots">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>
+  </div>
+
+  <!-- VENTANA PRINCIPAL DE EXECUTOR -->
+  <div class="executor-window" id="executorWindow">
+    
+    <!-- 1. BARRA DE TÍTULO -->
+    <div class="title-bar">
+      <div class="title-brand">
+        <span class="logo-icon"><i data-lucide="terminal" style="width:16px; height:16px;"></i></span>
+        SEXYBOY <span>SCRIPTS</span>
+      </div>
+      <div class="window-controls">
+        <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.6; margin-right: 10px;">Roblox: Attached (PID: 10482)</span>
+        <span class="window-btn btn-min" title="Minimizar"></span>
+        <span class="window-btn btn-max" title="Maximizar"></span>
+        <span class="window-btn btn-close" title="Cerrar"></span>
+      </div>
+    </div>
+
+    <!-- 2. TOOLBAR SUPERIOR CON BOTONES DE EXECUTOR -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <button class="tool-btn primary" onclick="handleExecute()"><i data-lucide="play" style="width:14px; height:14px;"></i> Execute</button>
+        <button class="tool-btn" onclick="handleClear()"><i data-lucide="eraser" style="width:14px; height:14px;"></i> Clear</button>
+        <button class="tool-btn" onclick="handleCopy()"><i data-lucide="copy" style="width:14px; height:14px;"></i> Copy Code</button>
+        <button class="tool-btn" onclick="handleOpen()"><i data-lucide="folder-open" style="width:14px; height:14px;"></i> Open File</button>
+      </div>
+
+      <div class="toolbar-group">
+        <button class="tool-btn" id="btnOnboardTest" onclick="toggleOnboardTestMode()" title="Modo prueba de la guía">
+          <i data-lucide="flask-conical" style="width:14px; height:14px;"></i> <span id="onboardTestLabel">Prueba OFF</span>
+        </button>
+        <button class="tool-btn" onclick="resetAndShowOnboarding()" title="Ver la guía otra vez">
+          <i data-lucide="help-circle" style="width:14px; height:14px;"></i> Ver guía
+        </button>
+        <div class="status-badge">
+          <span class="status-dot"></span>
+          READY TO INJECT
+        </div>
+        <button class="tool-btn" onclick="handleInject()"><i data-lucide="syringe" style="width:14px; height:14px;"></i> Inject</button>
+      </div>
+    </div>
+
+    <!-- 3. WORKSPACE (EXPLORER Y EDITOR) -->
+    <div class="workspace">
+      
+      <!-- 3A. PANEL EXPLORER -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <span>Explorer</span>
+          <i data-lucide="sliders-horizontal" style="width:14px; height:14px;"></i>
+        </div>
+
+        <div class="search-box">
+          <i data-lucide="search"></i>
+          <input type="text" id="searchInput" oninput="filterScripts()" placeholder="Search scripts...">
+        </div>
+
+        <div class="explorer-tree" id="explorerTree">
+          <!-- Generado dinámicamente por JavaScript -->
+        </div>
+      </div>
+
+      <!-- 3B. EDITOR CENTRAL Y DETALLES -->
+      <div class="editor-container">
+        <!-- Pestañas de Archivo -->
+        <div class="editor-tabs">
+          <div class="editor-tab active" id="currentTabTitle">
+            <i data-lucide="file-code" style="width:13px; height:13px; color: var(--accent-green);"></i>
+            <span id="tabFileName">BlockSpin.lua</span>
+          </div>
+        </div>
+
+        <!-- Vista de Código / Ficha -->
+        <div class="editor-view">
+          
+          <!-- Ficha Resumen del Script Seleccionado -->
+          <div class="script-card-header">
+            <div class="script-meta">
+              <h2 id="scriptTitle">BlockSpin Script FREE <span id="scriptBadge" class="tree-item-badge free">FREE</span></h2>
+              <p id="scriptDesc">SoftAim, Aimbot, ESP completo de jugadores, vida, esqueletos y ATMs. Optimizado para ejecución sin lags.</p>
+              <div class="feature-tags" id="scriptTags">
+                <!-- Se llena dinámicamente -->
+              </div>
+            </div>
+
+            <div class="script-actions-panel">
+              <div class="price-tag" id="scriptPrice">FREE</div>
+              <button class="action-btn-large green" id="btnMainAction" onclick="getScriptAction()">
+                <i data-lucide="download" style="width:16px; height:16px;"></i> Obtener Script
+              </button>
+              <button class="action-btn-large outline" id="btnKeyAction" onclick="getKeyAction()">
+                <i data-lucide="key" style="width:16px; height:16px;"></i> Obtener Key
+              </button>
+            </div>
+          </div>
+
+          <!-- Editor de Código Simulado -->
+          <div class="code-editor-box">
+            <div class="line-numbers" id="lineNumbers">
+              1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10
+            </div>
+            <div class="code-content" id="codeEditorContent">
+              <!-- Código formateado Luau -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 4. BARRA DE ESTADO -->
+    <div class="status-bar">
+      <div class="status-bar-left">
+        <span><i data-lucide="check-circle-2" style="width:12px; height:12px; color: var(--accent-green); vertical-align: middle;"></i> Luau Engine: Active</span>
+        <span>FPS: 60</span>
+      </div>
+      <div class="status-bar-right">
+        <span>Ln 1, Col 1</span>
+        <span>UTF-8</span>
+        <span>SEXYBOY V2.6</span>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- INVITACIÓN AL CANAL DE WHATSAPP (sale primero) -->
+  <div class="community-overlay" id="communityOverlay" role="dialog" aria-modal="true" aria-labelledby="communityTitle" aria-describedby="communityDescription">
+    <div class="community-modal">
+      <button class="community-close" type="button" aria-label="Cerrar ventana" onclick="closeCommunityModal()">×</button>
+      <div class="community-icon"><i data-lucide="message-circle" style="width:32px;height:32px;"></i></div>
+      <div class="community-kicker">SEXYBOY SCRIPTS</div>
+      <h2 id="communityTitle">Antes de empezar</h2>
+      <p id="communityDescription">
+        Te invitamos a unirte a nuestro canal de <strong>WhatsApp</strong>.
+        Ahí avisamos actualizaciones de scripts, novedades y tips para que no te pierdas nada.
+      </p>
+      <div class="community-actions">
+        <button class="community-join" type="button" onclick="joinWhatsAppChannel()">
+          <i data-lucide="messages-square" style="width:16px;height:16px;"></i>
+          UNIRME AL CANAL
+        </button>
+        <button class="community-later" type="button" onclick="closeCommunityModal()">
+          <i data-lucide="arrow-right" style="width:15px;height:15px;"></i>
+          CONTINUAR SIN UNIRME
+        </button>
+      </div>
+      <span class="community-footnote">OPCIONAL · PODÉS SEGUIR IGUAL</span>
+    </div>
+  </div>
+
+  <!-- ONBOARDING / TUTORIAL (después del WhatsApp) -->
+  <div class="onboard-overlay" id="onboardOverlay" role="dialog" aria-modal="true">
+    <div class="onboard-modal">
+      <!-- PASO 1: Bienvenida -->
+      <div class="onboard-step active" id="onboardStep1">
+        <div class="onboard-icon"><i data-lucide="hand"></i></div>
+        <div class="onboard-kicker">SEXYBOY SCRIPTS</div>
+        <h2>Bienvenido</h2>
+        <p>
+          Si llegaste por un video de <strong>@sexyboy.scripts</strong>, acá te dejamos todo listo.
+          ¿Querés que te indiquemos cómo bajar el script que buscás?
+        </p>
+        <div class="onboard-actions">
+          <button class="onboard-btn primary" type="button" onclick="onboardGoStep2()">
+            <i data-lucide="play" style="width:15px;height:15px;"></i>
+            Sí, vi un video de ahí
+          </button>
+          <button class="onboard-btn ghost" type="button" onclick="finishOnboarding(false)">
+            No hace falta, ya sé cómo hacerlo
+          </button>
+        </div>
+      </div>
+
+      <!-- PASO 2: Elegir script -->
+      <div class="onboard-step" id="onboardStep2">
+        <div class="onboard-icon"><i data-lucide="list-checks"></i></div>
+        <div class="onboard-kicker">ELEGÍ TU SCRIPT</div>
+        <h2>¿Cuál estás buscando?</h2>
+        <p>Seleccioná uno de la lista y tocá <strong>Obtener el Script</strong>. Te abrimos el enlace directo.</p>
+        <div class="onboard-hint">Los más pedidos: <span>Aimbot/Hitbox Universal</span> y <span>BlockSpin</span></div>
+        <div class="onboard-script-list" id="onboardScriptList">
+          <!-- Se llena con JS -->
+        </div>
+        <div class="onboard-actions">
+          <button class="onboard-btn primary" type="button" id="onboardGetBtn" disabled onclick="onboardGetSelected()">
+            <i data-lucide="download" style="width:15px;height:15px;"></i>
+            Obtener el Script
+          </button>
+          <button class="onboard-btn ghost" type="button" onclick="finishOnboarding(false)">
+            Prefiero explorar el sitio yo mismo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTIFICACIÓN TOAST -->
+  <div class="toast" id="toast">
+    <i data-lucide="check-circle" style="color: var(--accent-green); width:16px; height:16px;"></i>
+    <span id="toastMsg">Código copiado al portapapeles</span>
+  </div>
+
+  <!-- JAVASCRIPT LÓGICA Y DATOS -->
+  <script>
+    // ===== ONBOARDING (solo 1 vez + modo prueba) =====
+    const ONBOARD_KEY = 'sb_onboard_done_v1';
+    const ONBOARD_TEST_KEY = 'sb_onboard_test_mode';
+    let onboardSelectedId = null;
+
+    function isOnboardTestMode() {
+      try { return localStorage.getItem(ONBOARD_TEST_KEY) === '1'; } catch (e) { return false; }
+    }
+
+    function updateOnboardTestUI() {
+      const label = document.getElementById('onboardTestLabel');
+      const btn = document.getElementById('btnOnboardTest');
+      if (!label) return;
+      if (isOnboardTestMode()) {
+        label.textContent = 'Prueba ON';
+        if (btn) btn.classList.add('primary');
+      } else {
+        label.textContent = 'Prueba OFF';
+        if (btn) btn.classList.remove('primary');
+      }
+    }
+
+    function toggleOnboardTestMode() {
+      try {
+        if (isOnboardTestMode()) {
+          localStorage.removeItem(ONBOARD_TEST_KEY);
+          if (typeof showToast === 'function') showToast('Modo prueba OFF · la guía sale 1 sola vez');
+        } else {
+          localStorage.setItem(ONBOARD_TEST_KEY, '1');
+          localStorage.removeItem(ONBOARD_KEY); // limpiar para que se vea al recargar
+          if (typeof showToast === 'function') showToast('Modo prueba ON · la guía sale siempre');
+        }
+      } catch (e) {}
+      updateOnboardTestUI();
+      lucide.createIcons();
+    }
+
+    // Reinicia el flujo completo: WhatsApp → tutorial
+    function resetAndShowOnboarding() {
+      try { localStorage.removeItem(ONBOARD_KEY); } catch (e) {}
+      closeOnboarding();
+      const communityOverlay = document.getElementById('communityOverlay');
+      if (communityOverlay) {
+        communityOverlay.classList.add('show');
+        lucide.createIcons();
+      }
+      if (typeof showToast === 'function') showToast('Flujo reiniciado: WhatsApp → guía');
+    }
+
+    function hasFinishedOnboarding() {
+      // En modo prueba siempre se considera "no terminada"
+      if (isOnboardTestMode()) return false;
+      try { return localStorage.getItem(ONBOARD_KEY) === '1'; } catch (e) { return false; }
+    }
+    function markOnboardingDone() {
+      // En modo prueba no guardamos el "ya lo vi"
+      if (isOnboardTestMode()) return;
+      try { localStorage.setItem(ONBOARD_KEY, '1'); } catch (e) {}
+    }
+
+    function openOnboarding() {
+      const overlay = document.getElementById('onboardOverlay');
+      if (!overlay) return;
+      document.getElementById('onboardStep1').classList.add('active');
+      document.getElementById('onboardStep2').classList.remove('active');
+      onboardSelectedId = null;
+      const btn = document.getElementById('onboardGetBtn');
+      if (btn) btn.disabled = true;
+      overlay.classList.add('show');
+      lucide.createIcons();
+    }
+
+    function closeOnboarding() {
+      const overlay = document.getElementById('onboardOverlay');
+      if (overlay) overlay.classList.remove('show');
+    }
+
+    function finishOnboarding() {
+      markOnboardingDone();
+      closeOnboarding();
+    }
+
+    function maybeStartOnboarding() {
+      // Después del WhatsApp, arranca el tutorial si corresponde
+      if (!hasFinishedOnboarding()) {
+        setTimeout(() => openOnboarding(), 280);
+      }
+    }
+
+    function onboardGoStep2() {
+      document.getElementById('onboardStep1').classList.remove('active');
+      document.getElementById('onboardStep2').classList.add('active');
+      renderOnboardScripts();
+      lucide.createIcons();
+    }
+
+    function renderOnboardScripts() {
+      const list = document.getElementById('onboardScriptList');
+      if (!list || typeof scriptsData === 'undefined') return;
+
+      const friendlyNames = {
+        'blockspin-free': { label: 'Script de BlockSpin', tip: 'Aimbot, SoftAim y ESP' },
+        'blockspin-autofarm': { label: 'Script de BlockSpin AutoFarm', tip: 'Farmeo automático de dinero' },
+        'bqm-street': { label: 'Script de BQM Street AutoFarm', tip: 'AutoFarm Pesca Disimulado, UnderMap' },
+        'bloospin': { label: 'Script de BlooSpin Beta', tip: 'ESP, Silent Aim y AutoFarm' },
+        'sb-universal': { label: 'Script de Aimbot/Hitbox Universal', tip: 'Funciona en varios juegos · sin key' },
+        'nw-op': { label: 'Script de Naval Warfare', tip: 'KillAura, RPG rápido y teleports' }
+      };
+
+      list.innerHTML = '';
+      scriptsData.filter(s => s.isFree).forEach(s => {
+        const friendly = friendlyNames[s.id] || { label: s.title, tip: (s.tags || []).slice(0, 3).join(' · ') };
+        const item = document.createElement('div');
+        item.className = 'onboard-script-item' + (onboardSelectedId === s.id ? ' selected' : '');
+        item.onclick = () => selectOnboardScript(s.id);
+        item.innerHTML = `
+          <div class="radio"></div>
+          <div class="info">
+            <strong>${friendly.label}</strong>
+            <span>${friendly.tip}</span>
+          </div>
+          <span class="badge-free">FREE</span>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    function selectOnboardScript(id) {
+      onboardSelectedId = id;
+      document.querySelectorAll('.onboard-script-item').forEach(el => el.classList.remove('selected'));
+      renderOnboardScripts();
+      const btn = document.getElementById('onboardGetBtn');
+      if (btn) btn.disabled = !onboardSelectedId;
+    }
+
+    function onboardGetSelected() {
+      if (!onboardSelectedId) return;
+      const script = scriptsData.find(s => s.id === onboardSelectedId);
+      if (!script) return;
+
+      if (typeof loadScriptView === 'function') {
+        loadScriptView(script.id);
+      }
+
+      if (script.scriptLink) {
+        window.open(script.scriptLink, '_blank', 'noopener,noreferrer');
+        if (typeof showToast === 'function') showToast('Abriendo enlace de script...');
+      }
+
+      finishOnboarding();
+    }
+
+    // SECUENCIA EXACTA DE ANIMACIONES
+    window.addEventListener('load', () => {
+      const preloader = document.getElementById('preloader');
+      const executorWindow = document.getElementById('executorWindow');
+      const communityOverlay = document.getElementById('communityOverlay');
+
+      // 1. Pantalla de Carga
+      setTimeout(() => {
+        preloader.classList.add('fade-out');
+        setTimeout(() => {
+          executorWindow.classList.add('enter-anim');
+        }, 300);
+      }, 1200);
+
+      // 2. Al terminar la entrada del executor:
+      //    primero WhatsApp → después tutorial (si no lo completó)
+      executorWindow.addEventListener('animationend', (e) => {
+        if (e.animationName === 'executorEntrance') {
+          if (!hasFinishedOnboarding() && communityOverlay) {
+            communityOverlay.classList.add('show');
+            lucide.createIcons();
+          }
+        }
+      });
+    });
+
+    function closeCommunityModal() {
+      const communityOverlay = document.getElementById('communityOverlay');
+      if (communityOverlay) communityOverlay.classList.remove('show');
+      maybeStartOnboarding();
+    }
+
+    function joinWhatsAppChannel() {
+      window.open('https://whatsapp.com/channel/0029Vb8MsK9G8l5KWcdjnQ2d', '_blank', 'noopener,noreferrer');
+      closeCommunityModal(); // también dispara el tutorial
+    }
+
+    // Escape / click fuera
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeCommunityModal();
+        // no forzamos cerrar onboarding con Escape para que lean la guía
+      }
+    });
+    document.addEventListener('click', (event) => {
+      const overlay = document.getElementById('communityOverlay');
+      if (event.target === overlay) closeCommunityModal();
+    });
+
+    // BASE DE DATOS DE SCRIPTS DE SEXYBOY
+    const scriptsData = [
+      {
+        id: 'blockspin-free',
+        name: 'BlockSpin.lua',
+        title: 'BlockSpin Script FREE',
+        category: 'Free Scripts',
+        isFree: true,
+        price: 'FREE',
+        desc: 'Un script completo y gratuito para BlockSpin con auxilio de apuntado (SoftAim/Aimbot), visión táctica ESP y mejoras de movilidad.',
+        tags: ['SoftAim', 'Aimbot', 'ESP Player', 'ESP Health', 'ESP Skeleton', 'ESP ATM', 'Rapid Stamina', 'Super Jump'],
+        code: `-- SEXYBOY SCRIPTS // BlockSpin Main Entry
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local Config = {
+    Aimbot = true,
+    SoftAim = true,
+    ESP_Players = true,
+    ESP_ATMs = true,
+    SuperJump = false
+}
+
+print("[SEXYBOY] Initializing BlockSpin Hub for " .. LocalPlayer.Name)`,
+        scriptLink: 'https://work.ink/2MQU/sexyboy-blockspin',
+        keyLink: 'https://work.ink/2MQU/sexyboy-blockspin-key'
+      },
+      {
+        id: 'blockspin-autofarm',
+        name: 'BlockSpin_AutoFarm.lua',
+        title: 'BlockSpin AutoFarm FREE',
+        category: 'Free Scripts',
+        isFree: true,
+        price: 'FREE',
+        desc: 'Sistemas de farmeo automático de dinero en cajeros (ATM) usando vehículos y cajas sin requerir esfuerzo manual.',
+        tags: ['AutoFarm ATM', 'AutoFarm BOXES', 'Vehicle Speed', 'AntiAFK'],
+        code: `-- SEXYBOY SCRIPTS // BlockSpin AutoFarm Module
+local VirtualUser = game:GetService("VirtualUser")
+local Workspace = game:GetService("Workspace")
+
+local FarmSettings = {
+    Target = "ATM_Vehicle",
+    AutoBoxes = true,
+    AntiAFK = true
+}
+
+print("[SEXYBOY] AutoFarm Engine Loaded - Target: " .. FarmSettings.Target)`,
+        scriptLink: 'https://work.ink/2MQU/sexyboy-bp-autofarm',
+        keyLink: 'https://work.ink/2MQU/sexyboy-autofarm-key'
+      },
+      {
+        id: 'bqm-street',
+        name: 'bqm-street.lua',
+        title: 'bqm-street.lua FREE',
+        category: 'Free Scripts',
+        isFree: true,
+        price: 'FREE',
+        desc: 'AutoFarm Pesca Disimulado, UnderMap.',
+        tags: ['AutoFarm Pesca Disimulado', 'UnderMap'],
+        code: `-- SEXYBOY SCRIPTS // bqm-street Module
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local Settings = {
+    AutoFishStealth = true,
+    UnderMap = true
+}
+
+print("[SEXYBOY] bqm-street Module Loaded for " .. LocalPlayer.Name)`,
+        scriptLink: 'https://work.ink/2MQU/bqm-autofarm',
+        keyLink: 'https://work.ink/2MQU/bqm-a-farm-key'
+      },
+      {
+        id: 'bloospin',
+        name: 'BlooSpin.lua',
+        title: 'BlooSpin Script FREE',
+        category: 'Free Scripts',
+        isFree: true,
+        price: 'FREE',
+        desc: 'Script completo para BlooSpin con visión táctica avanzada (ESP Box, Health, Inventory y Distance), Silent Aim para RPG y armas, UnderMap, AutoFarm y utilidades de combate para dominar cada partida.',
+        tags: ['ESP Box', 'ESP Health', 'ESP Inventory', 'ESP Distance', 'Silent Aim RPG', 'Silent Aim Weapons', 'UnderMap', 'AutoFarm'],
+        code: `-- SEXYBOY SCRIPTS // BlooSpin Main Entry
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local Config = {
+    ESP_Box = true,
+    ESP_Health = true,
+    ESP_Inventory = true,
+    ESP_Distance = true,
+    SilentAim_RPG = true,
+    SilentAim_Weapons = true,
+    UnderMap = false,
+    AutoFarm = true
+}
+
+print("[SEXYBOY] Initializing BlooSpin Hub for " .. LocalPlayer.Name)`,
+        scriptLink: 'https://work.ink/2MQU/bloo-spin-script-copy-of-blockspin',
+        keyLink: 'https://work.ink/2MQU/bloo-spin-permanent-key'
+      },
+      {
+        id: 'sb-universal',
+        name: 'SexyBoy_Universal.lua',
+        title: 'SexyBoy Universal (FREE)',
+        category: 'Free Scripts',
+        isFree: true,
+        price: 'FREE (SIN KEY)',
+        desc: 'Diseñado para ejecutarse en múltiples juegos tácticos y shooters de Roblox. No requiere clave de verificación.',
+        tags: ['Universal ESP', 'Hitbox Expander', 'Aimbot', 'No Key Required'],
+        code: `-- SEXYBOY SCRIPTS // Universal Cross-Game Suite
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+_G.AimbotKey = Enum.KeyCode.E
+_G.HitboxMultiplier = 2.5
+_G.ESP_Color = Color3.fromRGB(0, 255, 136)
+
+print("[SEXYBOY] Universal Suite Active (No Key Required)")`,
+        scriptLink: 'https://lootdest.org/s?KBnCzNkS',
+        keyLink: null
+      },
+      {
+        id: 'nw-op',
+        name: 'Naval_Warfare.lua',
+        title: 'Naval Warfare OP',
+        category: 'Free Scripts',
+        isFree: true,
+        price: 'FREE',
+        desc: 'Dominación total marítima y aérea: KillAura, RPG de disparo rápido, teletransportación instantánea a barcos e islas.',
+        tags: ['KillAura', 'Rapid RPG', 'Ship Teleports', 'Sabotage Harbor', 'Kill All Planes'],
+        code: `-- SEXYBOY SCRIPTS // Naval Warfare Combat Suite
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+
+local NavalConfig = {
+    KillAura = true,
+    RapidFireRPG = true,
+    AutoDestroyPlanes = true
+}
+
+print("[SEXYBOY] Naval Warfare Tactical Overhaul Ready")`,
+        scriptLink: 'https://lootdest.org/s?KBnCzNkS',
+        keyLink: 'https://lootdest.org/s?KBnCzNkS'
+      },
+      {
+        id: 'custom-vip',
+        name: 'Custom_Script_Order.lua',
+        title: 'Pedido de Script Custom',
+        category: 'Premium Scripts',
+        isFree: false,
+        price: '$10.00 USD+',
+        desc: '¿Necesitás un script a medida para un juego específico? Encargá un desarrollo exclusivo totalmente indetectable.',
+        tags: ['Custom Features', 'Private Bypass', 'Dedicated Support', '0% Detection'],
+        code: `-- SEXYBOY SCRIPTS // Private Development Module
+local CustomScript = {
+    Version = "2.6.0-VIP",
+    BypassStatus = "Undetected",
+    CustomFeatures = {
+        "Private Anti-Cheat Bypass",
+        "Dedicated Server Hooking",
+        "Unique Build Token"
+    }
+}
+
+print("[SEXYBOY] VIP Custom Order Pipeline Operational")`,
+        scriptLink: 'https://whatsapp.com/channel/0029Vb8MsK9G8l5KWcdjnQ2d',
+        keyLink: null
+      }
+    ];
+
+    let currentScript = scriptsData[0];
+
+    // INICIALIZACIÓN
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      renderExplorer();
+      loadScriptView(currentScript.id);
+      updateOnboardTestUI();
+    });
+
+    // RENDERIZAR PANEL EXPLORER
+    function renderExplorer(filter = '') {
+      const container = document.getElementById('explorerTree');
+      container.innerHTML = '';
+
+      const categories = ['Free Scripts', 'Premium Scripts'];
+
+      categories.forEach(cat => {
+        const items = scriptsData.filter(s => s.category === cat && s.title.toLowerCase().includes(filter.toLowerCase()));
+        
+        if (items.length > 0) {
+          const folderDiv = document.createElement('div');
+          folderDiv.className = 'folder-title';
+          folderDiv.innerHTML = `<i data-lucide="folder-code" style="width:13px; height:13px; color: var(--accent-green);"></i> ${cat}`;
+          container.appendChild(folderDiv);
+
+          items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = `tree-item ${item.id === currentScript.id ? 'active' : ''}`;
+            itemDiv.onclick = () => loadScriptView(item.id);
+
+            const badgeClass = item.isFree ? 'free' : 'prem';
+            const badgeText = item.isFree ? 'FREE' : 'VIP';
+
+            itemDiv.innerHTML = `
+              <div class="tree-item-info">
+                <i data-lucide="file-code" style="width:13px; height:13px; opacity:0.7;"></i>
+                <span>${item.name}</span>
+              </div>
+              <span class="tree-item-badge ${badgeClass}">${badgeText}</span>
+            `;
+            container.appendChild(itemDiv);
+          });
+        }
+      });
+      lucide.createIcons();
+    }
+
+    // CARGAR SCRIPT EN LA VISTA CENTRAL
+    function loadScriptView(scriptId) {
+      const script = scriptsData.find(s => s.id === scriptId);
+      if (!script) return;
+
+      currentScript = script;
+
+      // Actualizar Pestañas y Nombres
+      document.getElementById('tabFileName').innerText = script.name;
+      document.getElementById('currentTabTitle').setAttribute('title', script.name);
+
+      // Actualizar Ficha de Script
+      document.getElementById('scriptTitle').innerHTML = `${script.title} <span class="tree-item-badge ${script.isFree ? 'free' : 'prem'}">${script.isFree ? 'FREE' : 'PREMIUM'}</span>`;
+      document.getElementById('scriptDesc').innerText = script.desc;
+      document.getElementById('scriptPrice').innerText = script.price;
+
+      // Tags
+      const tagsContainer = document.getElementById('scriptTags');
+      tagsContainer.innerHTML = '';
+      script.tags.forEach(t => {
+        const tagSpan = document.createElement('span');
+        tagSpan.className = 'tag';
+        tagSpan.innerText = t;
+        tagsContainer.appendChild(tagSpan);
+      });
+
+      // Botón principal
+      const btnMain = document.getElementById('btnMainAction');
+      const btnKey = document.getElementById('btnKeyAction');
+
+      if (!script.isFree) {
+        btnMain.className = 'action-btn-large purple';
+        btnMain.innerHTML = `<i data-lucide="shopping-cart" style="width:16px; height:16px;"></i> Encargar Script Custom`;
+        btnKey.style.display = 'none';
+      } else {
+        btnMain.className = 'action-btn-large green';
+        btnMain.innerHTML = `<i data-lucide="download" style="width:16px; height:16px;"></i> Obtener Script`;
+        if (script.keyLink) {
+          btnKey.style.display = 'flex';
+          btnKey.innerHTML = `<i data-lucide="key" style="width:16px; height:16px;"></i> Obtener Key`;
+        } else {
+          btnKey.style.display = 'none';
+        }
+      }
+
+      // Código Formateado
+      renderFormattedCode(script.code);
+
+      // Re-renderizar estado de selección en el Explorer
+      renderExplorer(document.getElementById('searchInput').value);
+      lucide.createIcons();
+    }
+
+    // RESALTADO DE SINTAXIS SIMULADO DE LUAU
+    function renderFormattedCode(codeText) {
+      const codeContainer = document.getElementById('codeEditorContent');
+      const linesContainer = document.getElementById('lineNumbers');
+
+      const lines = codeText.split('\n');
+      linesContainer.innerHTML = lines.map((_, i) => i + 1).join('<br>');
+
+      let formatted = codeText
+        .replace(/(--.*)/g, '<span class="syn-com">$1</span>')
+        .replace(/\b(local|function|end|return|if|then|true|false)\b/g, '<span class="syn-kw">$1</span>')
+        .replace(/(".*?")/g, '<span class="syn-str">$1</span>')
+        .replace(/\b(GetService|print|loadstring|game)\b/g, '<span class="syn-fn">$1</span>');
+
+      codeContainer.innerHTML = formatted;
+    }
+
+    // ACCIONES DE BOTONES
+    function getScriptAction() {
+      if (currentScript.scriptLink) {
+        window.open(currentScript.scriptLink, '_blank');
+        showToast('Abriendo enlace de script...');
+      }
+    }
+
+    function getKeyAction() {
+      if (currentScript.keyLink) {
+        window.open(currentScript.keyLink, '_blank');
+        showToast('Abriendo enlace de clave...');
+      }
+    }
+
+    function handleExecute() {
+      showToast('¡Script ejecutado en Roblox con éxito!');
+    }
+
+    function handleClear() {
+      document.getElementById('codeEditorContent').innerHTML = '<span class="syn-com">-- Editor limpiado</span>';
+      document.getElementById('lineNumbers').innerHTML = '1';
+      showToast('Editor despejado');
+    }
+
+    function handleCopy() {
+      navigator.clipboard.writeText(currentScript.code);
+      showToast('Código copiado al portapapeles ✓');
+    }
+
+    function handleOpen() {
+      showToast('Seleccioná un script desde el panel Explorer');
+    }
+
+    function handleInject() {
+      showToast('Inyección simulada completada (DLL Ready)');
+    }
+
+    function filterScripts() {
+      const val = document.getElementById('searchInput').value;
+      renderExplorer(val);
+    }
+
+    // TOAST NOTIFICATION LÓGICA
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').innerText = message;
+      toast.classList.add('show');
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
