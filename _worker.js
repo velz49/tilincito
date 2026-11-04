@@ -9,7 +9,7 @@ export default {
       "/test.lua",
       "/sexyboy-esp.lua",
       "/blockcopysb.lua",
-      "/misexy-street.lua"
+      "/otc.lua"
     ];
 
     // Si la URL termina en .lua pero no está autorizada,
