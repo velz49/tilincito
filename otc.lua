@@ -1,12 +1,8 @@
 -- ============================================================
--- VELZAR SCRIPTS - STUB (esto es lo unico que se publica/comparte)
--- No contiene la logica real. Pide el codigo real al Worker,
--- lo descifra en memoria y lo ejecuta. No pide key al usuario.
--- ============================================================
+-- SEXYBOY SCRIPTS
 
 local BASE_URL = "https://velzarscripts.pages.dev"
-local SCRIPT_ID = "otc" -- cambia esto por script: "sexyboy-esp", "blockcopysb", "test"
-
+local SCRIPT_ID = "otc" 
 local function httpRequest(opts)
     local f = (syn and syn.request) or http_request or (http and http.request) or request
     if not f then error("Tu executor no soporta requests HTTP.") end
@@ -23,7 +19,7 @@ local function getHWID()
     return "unknown-" .. tostring(math.random(100000, 999999))
 end
 
--- RC4: misma logica que el Worker, para descifrar el payload.
+-- R
 local function rc4(dataBytes, key)
     local S = {}
     for i = 0, 255 do S[i] = i end
@@ -65,7 +61,7 @@ local function main()
     local hwid = getHWID()
     local Http = game:GetService("HttpService")
 
-    -- 1) Pedir token (no hace falta key, es automatico por HWID)
+    -- sdf
     local authRes = httpRequest({
         Url = BASE_URL .. "/api/auth",
         Method = "POST",
@@ -77,7 +73,7 @@ local function main()
         error("[Velzar] No se pudo autenticar: " .. tostring(authData.error))
     end
 
-    -- 2) Pedir el payload cifrado (vence en 20s, un solo uso)
+    -- lolo
     local payloadRes = httpRequest({
         Url = BASE_URL .. "/api/payload?t=" .. authData.token,
         Method = "GET",
@@ -87,7 +83,7 @@ local function main()
         error("[Velzar] No se pudo obtener el script: " .. tostring(payloadData.error))
     end
 
-    -- 3) Descifrar en memoria y ejecutar (el codigo real nunca toca disco)
+    -- watt
     local encryptedBytes = base64Decode(payloadData.payload)
     local sourceCode = rc4(encryptedBytes, authData.token)
 
