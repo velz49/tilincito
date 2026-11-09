@@ -1,21 +1,7 @@
 // ============================================================
-// VELZAR SCRIPTS - Proteccion de codigo fuente (sin keys manuales)
-// Cloudflare Pages (Advanced Mode) - reemplaza tu _worker.js
-// Requiere 1 KV namespace bindeado: VELZAR_DB
-// Requiere 1 variable de entorno secreta: ADMIN_SECRET
-//
-// Como funciona:
-// - El loadstring se comparte libre, no hay keys que pedir ni pegar.
-// - El .lua publico es solo un stub: pide el codigo real al Worker.
-// - El Worker identifica al usuario por HWID automaticamente (primera
-//   vez que corre, queda registrado) y le entrega el codigo cifrado
-//   con un token que vence en segundos y se usa una sola vez.
-// - El codigo real nunca esta en GitHub ni se sirve como archivo estatico.
-// - Si alguien filtra un script, la marca de agua te dice que HWID fue,
-//   y lo podes banear sin tocar nada del repo.
-// ============================================================
+// VELZAR SCRIPTS  ============================================================
 
-// Nombre publico del script -> id interno en KV donde esta el codigo real
+//
 const PROTECTED_SCRIPTS = {
   "otc": "code:otc",
   "sexyboy-esp": "code:sexyboy-esp",
@@ -35,7 +21,7 @@ function jsonResponse(obj, status = 200) {
   });
 }
 
-// ---- RC4: cifrado simetrico, facil de replicar en Lua puro ----
+// -
 function rc4(bytes, keyStr) {
   const key = new TextEncoder().encode(keyStr);
   const S = new Uint8Array(256);
@@ -66,10 +52,28 @@ function rc4Encrypt(plainText, keySeed) {
   return btoa(bin);
 }
 
+async function hmacHex(secret, message) {
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function toBase64Url(str) {
+  return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromBase64Url(str) {
+  let s = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  return atob(s);
+}
+
 // -------------------- Handlers --------------------
 
 // POST /api/auth  { hwid, script }
-// No pide key. Si el HWID es nuevo, lo registra solo. Si esta baneado, corta.
 async function handleAuth(request, env) {
   if (request.method !== "POST") return jsonResponse({ error: "method" }, 405);
 
@@ -78,55 +82,52 @@ async function handleAuth(request, env) {
   if (!hwid || !script) return jsonResponse({ error: "missing_fields" }, 400);
   if (!PROTECTED_SCRIPTS[script]) return jsonResponse({ error: "unknown_script" }, 404);
 
-  let record = await env.VELZAR_DB.get("hwid:" + hwid, { type: "json" });
-  if (!record) {
-    record = { createdAt: Date.now(), banned: false };
-    await env.VELZAR_DB.put("hwid:" + hwid, JSON.stringify(record));
-  }
-  if (record.banned) return jsonResponse({ error: "banned" }, 403);
+  const banned = await env.VELZAR_DB.get("ban:" + hwid);
+  if (banned) return jsonResponse({ error: "banned" }, 403);
 
-  // Rate limit: max 1 pedido cada 2 segundos por HWID.
-  // Cloudflare KV no permite expirationTtl menor a 60s, asi que
-  // controlamos el tiempo a mano con una marca de tiempo guardada.
-  const now = Date.now();
-  const rlRaw = await env.VELZAR_DB.get("rl:" + hwid, { type: "json" });
-  if (rlRaw && now - rlRaw.last < 2000) {
-    return jsonResponse({ error: "rate_limited" }, 429);
-  }
-  await env.VELZAR_DB.put("rl:" + hwid, JSON.stringify({ last: now }), { expirationTtl: 60 });
-
-  // Token de un solo uso, vence en 20 segundos (chequeado a mano en /api/payload,
-  // el expirationTtl de 60s es solo limpieza de KV, no el vencimiento real).
-  const token = randomId(24);
-  await env.VELZAR_DB.put(
-    "tok:" + token,
-    JSON.stringify({ script, hwid, used: false, createdAt: now }),
-    { expirationTtl: 60 }
-  );
+  const payloadStr = JSON.stringify({ script, hwid, ts: Date.now() });
+  const payloadB64 = toBase64Url(payloadStr);
+  const sig = await hmacHex(env.ADMIN_SECRET, payloadB64);
+  const token = payloadB64 + "." + sig;
 
   return jsonResponse({ token });
 }
 
-// GET /api/payload?t=TOKEN
+// GET 
 async function handlePayload(request, env) {
   const url = new URL(request.url);
   const token = url.searchParams.get("t");
   if (!token) return jsonResponse({ error: "missing_token" }, 400);
 
-  const raw = await env.VELZAR_DB.get("tok:" + token);
-  if (!raw) return jsonResponse({ error: "invalid_or_expired_token" }, 401);
-  await env.VELZAR_DB.delete("tok:" + token); // un solo uso, se borra ya
+  const dot = token.lastIndexOf(".");
+  if (dot === -1) return jsonResponse({ error: "invalid_token" }, 401);
+  const payloadB64 = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
 
-  const data = JSON.parse(raw);
-  if (Date.now() - data.createdAt > 20000) {
+  const expectedSig = await hmacHex(env.ADMIN_SECRET, payloadB64);
+  if (sig !== expectedSig) return jsonResponse({ error: "invalid_token" }, 401);
+
+  let data;
+  try {
+    data = JSON.parse(fromBase64Url(payloadB64));
+  } catch {
+    return jsonResponse({ error: "invalid_token" }, 401);
+  }
+
+  if (Date.now() - data.ts > 20000) {
     return jsonResponse({ error: "token_expired" }, 401);
   }
+
+  const banned = await env.VELZAR_DB.get("ban:" + data.hwid);
+  if (banned) return jsonResponse({ error: "banned" }, 403);
+
   const kvId = PROTECTED_SCRIPTS[data.script];
+  if (!kvId) return jsonResponse({ error: "unknown_script" }, 404);
+
   const sourceCode = await env.VELZAR_DB.get(kvId);
   if (!sourceCode) return jsonResponse({ error: "script_not_configured" }, 404);
 
-  // Marca de agua: queda el HWID y el token en un comentario al principio.
-  const watermark = `-- wm:${data.hwid.slice(0, 12)}:${token.slice(0, 8)}\n`;
+  const watermark = `-- wm:${data.hwid.slice(0, 12)}:${data.ts}\n`;
   const encrypted = rc4Encrypt(watermark + sourceCode, token);
 
   return jsonResponse({ payload: encrypted });
@@ -138,7 +139,7 @@ function checkAdmin(request, env) {
   return !!env.ADMIN_SECRET && auth === "Bearer " + env.ADMIN_SECRET;
 }
 
-// POST /api/admin/script  { script, source }  -> sube/actualiza el codigo real
+// POST 
 async function handleAdminScript(request, env) {
   if (!checkAdmin(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
   const { script, source } = await request.json().catch(() => ({}));
@@ -149,15 +150,17 @@ async function handleAdminScript(request, env) {
   return jsonResponse({ ok: true });
 }
 
-// POST /api/admin/ban  { hwid, banned: true|false }  -> banear/desbanear un HWID
+// POST 
 async function handleAdminBan(request, env) {
   if (!checkAdmin(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
   const { hwid, banned } = await request.json().catch(() => ({}));
   if (!hwid) return jsonResponse({ error: "missing_hwid" }, 400);
-  let record = (await env.VELZAR_DB.get("hwid:" + hwid, { type: "json" })) || { createdAt: Date.now() };
-  record.banned = !!banned;
-  await env.VELZAR_DB.put("hwid:" + hwid, JSON.stringify(record));
-  return jsonResponse({ ok: true, record });
+  if (banned) {
+    await env.VELZAR_DB.put("ban:" + hwid, "1");
+  } else {
+    await env.VELZAR_DB.delete("ban:" + hwid);
+  }
+  return jsonResponse({ ok: true });
 }
 
 // -------------------- Router --------------------
@@ -172,7 +175,7 @@ export default {
     if (path === "/api/admin/script") return handleAdminScript(request, env);
     if (path === "/api/admin/ban") return handleAdminBan(request, env);
 
-    // ---- tu logica original para servir los .lua y la pagina HTML ----
+    // ----
 
     const validScripts = ["/test.lua", "/sexyboy-esp.lua", "/blockcopysb.lua", "/otc.lua"];
 
@@ -209,7 +212,7 @@ export default {
         });
       }
 
-      // El executor (o quien se haga pasar por uno) recibe solo el stub.
+      // 
       return env.ASSETS.fetch(request);
     }
 
